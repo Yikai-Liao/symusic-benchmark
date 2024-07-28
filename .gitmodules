@@ -1,0 +1,3 @@
+[submodule "3rdparty/POP909-Dataset"]
+	path = 3rdparty/POP909-Dataset
+	url = https://github.com/music-x-lab/POP909-Dataset.git
