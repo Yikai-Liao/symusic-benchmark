@@ -59,7 +59,7 @@ dataset_stat
 # MAX_FILES_PER_DATASET = int(dataset_stat['file_num'].max())  
 # REPEAT_TIMES = 5
 
-MAX_FILES_PER_DATASET = 2 # for testing
+MAX_FILES_PER_DATASET = 20 # for testing
 REPEAT_TIMES = 2 # for testing
 
 print(f"MAX_FILES_PER_DATASET: {MAX_FILES_PER_DATASET}")
