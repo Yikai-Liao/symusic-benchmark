@@ -13,6 +13,15 @@ pip install ./binding
 
 ## Dataset
 
-### POP909
+Download from [Google Drive](https://drive.google.com/file/d/1uynx2E4aj7iMa8_p4WDhNbQuCFLpl5Hx/view?usp=sharing) and put them in the root directory of this repo.
 
-It is used as github submodule, just clone it recursively.
+```plaintext
+├── 3rdparty
+├── benchmark.ipynb
+├── binding
+├── LICENSE
+├── midifile_binding
+├── README.md
+├── requirements.txt
+└── symusic_benchmark_datasets
+```
