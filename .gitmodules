@@ -1,3 +1,9 @@
 [submodule "3rdparty/POP909-Dataset"]
 	path = 3rdparty/POP909-Dataset
 	url = https://github.com/music-x-lab/POP909-Dataset.git
+[submodule "3rdparty/midifile"]
+	path = 3rdparty/midifile
+	url = https://github.com/craigsapp/midifile.git
+[submodule "3rdparty/nanobind"]
+	path = 3rdparty/nanobind
+	url = https://github.com/wjakob/nanobind.git
