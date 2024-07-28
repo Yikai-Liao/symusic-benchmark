@@ -1,5 +1,6 @@
 symusic
 miditoolkit
-prettymidi
+pretty_midi
 music21
 pandas
+jupyter
