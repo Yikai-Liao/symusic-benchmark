@@ -2,3 +2,4 @@ symusic
 miditoolkit
 prettymidi
 music21
+pandas
