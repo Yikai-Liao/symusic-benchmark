@@ -10,8 +10,8 @@ jobs:
         params:
           # Music21 is too slow, and we don't really care about the accuracy for music21
           #          - { library: "music21", repeat: 1 }
-          - { library: "symusic", repeat: 32 }
-          - { library: "midifile_cpp", repeat: 32 }
+          - { library: "symusic", repeat: 128 }
+          - { library: "midifile_cpp", repeat: 128 }
           - { library: "miditoolkit", repeat: 1 }
           - { library: "partitura", repeat: 1 }
           - { library: "pretty_midi", repeat: 1 }
@@ -39,7 +39,7 @@ jobs:
         # /dev/shm is a shared memory location that is faster than the disk
         # The full path to the dataset is /dev/shm/symusic_benchmark_datasets
         run: |
-          python ./script/prepare_dataset.py --output /dev/shm/
+          python ./script/prepare_dataset.py --output ./
 
       - name: Log version information
         run: |
@@ -47,7 +47,7 @@ jobs:
 
       - name: Run the benchmark
         run: |
-          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
+          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
 
 #      - name: Upload the results
 #        uses: actions/upload-artifact@v4
