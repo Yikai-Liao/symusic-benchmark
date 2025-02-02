@@ -5,6 +5,10 @@ on: [workflow_dispatch]
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        library: [symusic, midifile_cpp, mido, miditoolkit, pretty_midi, partitura]
+
     steps:
       - uses: actions/checkout@v4
         with:
