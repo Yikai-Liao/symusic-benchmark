@@ -7,3 +7,7 @@ jupyter
 tqdm
 gdown
 partitura
+seaborn
+matplotlib
+lowess
+statsmodels

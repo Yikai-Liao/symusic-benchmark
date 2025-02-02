@@ -75,3 +75,38 @@ jobs:
         with:
           name: version_info.json
           path: ./results/version_info.json
+
+  visualize:
+    runs-on: ubuntu-latest
+    needs: benchmark
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies
+        run: |
+          pip install -r ./requirements.txt
+
+      - name: Merge Artifact
+        uses: actions/upload-artifact/merge@v4
+        with:
+          name: all_stats
+          pattern: '*.csv'  # Merge all artifacts
+
+      - name: Download the merged artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: all_stats
+          path: ./stats
+
+      - name: Visualize the results
+        run: |
+          python ./script/visualize.py --input ./stats --output ./fig
+          ls -l ./fig
+
+      - name: Upload the visualization
+        uses: actions/upload-artifact@v4
+        with:
+          name: fig
+          path: ./fig/*.png
