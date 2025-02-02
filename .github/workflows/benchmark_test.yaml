@@ -1,4 +1,4 @@
-name: Benchmark
+name: Benchmark Test
 
 on: [ workflow_dispatch ]
 
@@ -12,9 +12,9 @@ jobs:
           #          - { library: "music21", repeat: 1 }
           - { library: "symusic", repeat: 32 }
           - { library: "midifile_cpp", repeat: 32 }
-          - { library: "miditoolkit", repeat: 8 }
-          - { library: "partitura", repeat: 8 }
-          - { library: "pretty_midi", repeat: 8 }
+          - { library: "miditoolkit", repeat: 1 }
+          - { library: "partitura", repeat: 1 }
+          - { library: "pretty_midi", repeat: 1 }
 
     steps:
       - uses: actions/checkout@v4
@@ -47,27 +47,27 @@ jobs:
 
       - name: Run the benchmark
         run: |
-          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_10_8.json --output ./results
+          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
 
 #      - name: Upload the results
 #        uses: actions/upload-artifact@v4
 #        with:
 #          name: ${{ matrix.params.library }}
-#          path: ./results/uniform_10_8/${{ matrix.params.library }}_read.csv
-#            | ./results/uniform_10_8/${{ matrix.params.library }}_write.csv
+#          path: ./results/uniform_25_4/${{ matrix.params.library }}_read.csv
+#            | ./results/uniform_25_4/${{ matrix.params.library }}_write.csv
 #          if-no-files-found: 'warn'
 
       - name: Upload READ results
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.params.library }}_read.csv
-          path: ./results/uniform_10_8/${{ matrix.params.library }}_read.csv
+          path: ./results/uniform_25_4/${{ matrix.params.library }}_read.csv
 
       - name: Upload WRITE results
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.params.library }}_write.csv
-          path : ./results/uniform_10_8/${{ matrix.params.library }}_write.csv
+          path : ./results/uniform_25_4/${{ matrix.params.library }}_write.csv
 
       - name: Upload the version information
         if: ${{ matrix.params.library == 'symusic' }}
