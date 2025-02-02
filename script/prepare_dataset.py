@@ -18,11 +18,11 @@ if __name__ == '__main__':
     url = f'https://drive.google.com/uc?id={file_id}'
 
     output = 'dataset.zip'
-    print("Downloading file from Google Drive...")
+    print("Downloading file from Google Drive ...")
     gdown.download(url, output, quiet=False)
 
     output_dir = parser.parse_args().output
-    print(f"Extracting file to {output_dir}...")
+    print(f"Extracting file to \"{output_dir}\" ...")
     # Try making the directory
     os.makedirs(output_dir, exist_ok=True)
     with zipfile.ZipFile(output, 'r') as zip_ref:
