@@ -20,13 +20,18 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r ./requirements.txt
-          pip install ./binding
+          pip install ./binding/midifile_cpp
 
-      - name: Run benchmark
+      - name: Install partitura (development version)
         run: |
-          python ./benchmark.py
+          bash ./script/install_partitura_dev.sh
 
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          path: "*.csv"
+      - name: Prepare the dataset
+        # /dev/shm is a shared memory location that is faster than the disk
+        # The full path to the dataset is /dev/shm/symusic_benchmark_datasets
+        run: |
+          python ./script/prepare_dataset.py --output /dev/shm/
+
+      - name: Log version information
+        run: |
+          python ./script/log_version.py --output ./results/version_info.json

@@ -15,12 +15,20 @@ smf::MidiFile load(std::string file){
     return midifile;
 }
 
-NB_MODULE(midifile_binding, m) {
+NB_MODULE(midifile_cpp, m) {
     m.doc() = "A simple binding of midifile for benchmark in python.";
     nb::class_<smf::MidiFile>(m, "MidiFile")
         .def("dump_midi", [](smf::MidiFile &midifile, const std::string& path){
             midifile.write(path);
         }, "Dump the midi file to the given path.")
     ;
+
     m.def("load", &load, "Load a midi file from the given path.");
+
+    m.def("dump", [](smf::MidiFile &midifile, const std::string& path){
+        midifile.write(path);
+    }, "Dump the midi file to the given path.");
+
+    // version
+    m.attr("__version__") = "0.0.1";
 }

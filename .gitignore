@@ -1,6 +1,6 @@
 **/.vscode
 **/.idea
 tmp*
-binding/build
-binding/cmake-build*
+binding/**/build
+binding/**/cmake-build*
 symusic_benchmark_datasets
