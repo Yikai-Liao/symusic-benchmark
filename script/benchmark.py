@@ -57,12 +57,16 @@ def benchmark_read_write(library_funcs, file_paths, repeat=1, use_multiprocessin
                 total=len(file_paths)
             ))
         for size, avg_read, avg_write in results:
+            if size is None:
+                continue
             sizes.append(size)
             read_times.append(avg_read)
             write_times.append(avg_write)
     else:
         for path in tqdm(file_paths, desc="Read and Write Benchmark"):
             size, avg_read, avg_write = measure_read_write(path, read_func, write_func, repeat)
+            if size is None:
+                continue
             sizes.append(size)
             read_times.append(avg_read)
             write_times.append(avg_write)
@@ -97,31 +101,34 @@ def measure_read_write(path, read_func, write_func, repeat):
         tuple: (file size in KB, average read time in seconds, average write time in seconds)
     """
     # Calculate file size in KB
-    size = os.path.getsize(path) / 1024
+    try:
+        size = os.path.getsize(path) / 1024
 
-    # Measure read time
-    start_time = timeit.default_timer()
-    midi_object = None
-    for _ in range(repeat):
-        midi_object = read_func(path)
-    read_total_time = timeit.default_timer() - start_time
-    avg_read_time = read_total_time / repeat
+        # Measure read time
+        start_time = timeit.default_timer()
+        midi_object = None
+        for _ in range(repeat):
+            midi_object = read_func(path)
+        read_total_time = timeit.default_timer() - start_time
+        avg_read_time = read_total_time / repeat
 
-    # Measure write time
-    start_time = timeit.default_timer()
-    for i in range(repeat):
-        temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
-        write_func(midi_object, temp_path)
-    write_total_time = timeit.default_timer() - start_time
-    avg_write_time = write_total_time / repeat
+        # Measure write time
+        start_time = timeit.default_timer()
+        for i in range(repeat):
+            temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
+            write_func(midi_object, temp_path)
+        write_total_time = timeit.default_timer() - start_time
+        avg_write_time = write_total_time / repeat
 
-    # Remove temporary files
-    for i in range(repeat):
-        temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
-    return size, avg_read_time, avg_write_time
+        # Remove temporary files
+        for i in range(repeat):
+            temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        return size, avg_read_time, avg_write_time
+    except Exception as e:
+        print(f"Error processing {path}: {e}")
+        return None, None, None
 
 
 def music21_read(path):
