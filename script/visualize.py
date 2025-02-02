@@ -214,9 +214,15 @@ def plot_results(read_data, write_data, output_dir):
 
 def plot_speed_violin(read_data, write_data, output_dir):
     """
-    绘制与文件大小无关的速度分布小提琴图（分读写两张图），
+    绘制去掉离群点后的速度分布小提琴图（分别绘制读和写两个图），
     每个库一个小提琴分布，使用与折线图相同的调色板，保证颜色一致。
+    根据库的数量自动调整图形尺寸。
     """
+    import os
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import pandas as pd
+
     os.makedirs(output_dir, exist_ok=True)
     # 与折线图保持一致的主题/调色板
     sns.set_theme(context="paper", style="whitegrid", palette="colorblind", font_scale=1.3)
@@ -225,27 +231,35 @@ def plot_speed_violin(read_data, write_data, output_dir):
     palette = sns.color_palette("colorblind", n_colors=len(LIB_ORDER))
     color_dict = {lib: palette[i] for i, lib in enumerate(LIB_ORDER)}
 
-    libset = set(read_data['Library'])
+    # 过滤离群点
+    read_data_filtered = read_data
+    write_data_filtered = write_data
+
+    # 根据过滤后的read_data中的库排序
+    libset = set(read_data_filtered['Library'])
     order = [lib for lib in LIB_ORDER if lib in libset]
+    n_lib = len(order)
+    # 根据库数量计算图形尺寸，宽度为 max(6, 每个库1.5英寸)，高度固定为6英寸
+    fig_width = max(6, n_lib * 1.5)
+    fig_size = (fig_width, 6)
 
     # === READ speed violin plot ===
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=fig_size)
     ax = sns.violinplot(
         x="Library",
         y="Speed (MB/s)",
         hue="Library",
-        data=read_data,
+        data=read_data_filtered,
         order=order,
         palette=color_dict,
         dodge=False,
     )
     # 分组计算中位数
-    grouped = read_data.groupby('Library')['Speed (MB/s)'].median().to_dict()
+    grouped = read_data_filtered.groupby('Library')['Speed (MB/s)'].median().to_dict()
 
     for i, lib in enumerate(order):
         median_val = grouped[lib]
         # 在 y 轴为 median_val 处标注文本
-        # x坐标为 i，表示第 i 个分类的中心，或略作调整
         plt.text(
             x=i + 0.3,
             y=median_val * 1.2,
@@ -265,29 +279,27 @@ def plot_speed_violin(read_data, write_data, output_dir):
 
     plt.xlabel("Library", fontsize=14)
     plt.ylabel("Speed (MB/s)", fontsize=14)
-    plt.title("MIDI Parsing Speed Distribution\n(Median Annotated)", fontsize=16)
+    plt.title("MIDI Parsing Speed Distribution (Filtered Outliers)\n(Median Annotated)", fontsize=16)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "parse_speed_violin.png"), dpi=600)
     plt.close()
 
     # === WRITE speed violin plot ===
-    plt.figure(figsize=(6, 6))
+    plt.figure(figsize=fig_size)
     ax = sns.violinplot(
         x="Library",
         y="Speed (MB/s)",
         hue="Library",
-        data=write_data,
+        data=write_data_filtered,
         order=order,
         palette=color_dict,
         dodge=False
     )
 
-    grouped = write_data.groupby('Library')['Speed (MB/s)'].median().to_dict()
+    grouped = write_data_filtered.groupby('Library')['Speed (MB/s)'].median().to_dict()
 
     for i, lib in enumerate(order):
         median_val = grouped[lib]
-        # 在 y 轴为 median_val 处标注文本
-        # x坐标为 i，表示第 i 个分类的中心，或略作调整
         plt.text(
             x=i + 0.3,
             y=median_val * 1.2,
@@ -304,7 +316,7 @@ def plot_speed_violin(read_data, write_data, output_dir):
     plt.yscale('log')
     plt.xlabel("Library", fontsize=14)
     plt.ylabel("Speed (MB/s)", fontsize=14)
-    plt.title("MIDI Dumping Speed Distribution\n(Median Annotated)", fontsize=16)
+    plt.title("MIDI Dumping Speed Distribution (Filtered Outliers)\n(Median Annotated)", fontsize=16)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "dump_speed_violin.png"), dpi=600)
     plt.close()

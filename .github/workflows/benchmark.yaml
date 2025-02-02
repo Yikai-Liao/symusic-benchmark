@@ -11,6 +11,7 @@ jobs:
           # Music21 is too slow, and we don't really care about the accuracy for music21
           - { library: "music21", repeat: 1 }
           - { library: "symusic", repeat: 100 }
+          - { library: "midi_jl", repeat: 100 }
           - { library: "midifile_cpp", repeat: 100 }
           - { library: "miditoolkit", repeat: 10 }
           - { library: "partitura", repeat: 10 }
@@ -25,6 +26,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.12
+      
+      - name: "Set up Julia"
+        if: ${{ matrix.params.library == 'midi_jl' }}
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "nightly"
+          arch: "aarch64"
 
       - name: Install dependencies
         run: |
@@ -48,14 +56,12 @@ jobs:
       - name: Run the benchmark
         run: |
           python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_10_8.json --output ./results
-
-#      - name: Upload the results
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: ${{ matrix.params.library }}
-#          path: ./results/uniform_10_8/${{ matrix.params.library }}_read.csv
-#            | ./results/uniform_10_8/${{ matrix.params.library }}_write.csv
-#          if-no-files-found: 'warn'
+      
+      - name: Run MIDI.jl benchmark
+        if: ${{ matrix.params.library == 'midi_jl' }}
+        run: |
+          julia ./script/prepare_dependency.jl
+          julia ./script/benchmark.jl --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_10_8.json --output ./results
 
       - name: Upload READ results
         uses: actions/upload-artifact@v4
