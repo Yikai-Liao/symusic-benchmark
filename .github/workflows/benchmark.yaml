@@ -1,13 +1,20 @@
 name: Benchmark
 
-on: [workflow_dispatch]
+on: [ workflow_dispatch ]
 
 jobs:
   benchmark:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        library: [symusic, midifile_cpp, mido, miditoolkit, pretty_midi, partitura]
+        params:
+          # Music21 is too slow, and we don't really care about the accuracy for music21
+          #          - { library: "music21", repeat: 1 }
+          - { library: "symusic", repeat: 32 }
+          - { library: "midifile_cpp", repeat: 32 }
+          - { library: "miditoolkit", repeat: 1 }
+          - { library: "partitura", repeat: 1 }
+          - { library: "pretty_midi", repeat: 1 }
 
     steps:
       - uses: actions/checkout@v4
@@ -37,3 +44,21 @@ jobs:
       - name: Log version information
         run: |
           python ./script/log_version.py --output ./results/version_info.json
+
+      - name: Run the benchmark
+        run: |
+          python ./script/benchmark.py --library ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
+
+      - name: Upload the results
+        uses: actions/upload-artifact@v4
+        with :
+          name: ${{ matrix.params.library }}
+          path: ./results/**/${{ matrix.params.library }}*.csv
+          if-no-files-found: 'warn'
+
+      - name: Upload the version information
+        if: ${{ matrix.params.library == 'symusic' }}
+        uses: actions/upload-artifact@v4
+        with :
+          name: version_info
+          path: ./results/version_info.json
