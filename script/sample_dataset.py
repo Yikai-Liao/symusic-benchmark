@@ -1,93 +1,157 @@
-from typing import List, Dict
+#!/usr/bin/env python3
+"""
+Script to sample a MIDI dataset by binning files based on their file sizes.
+
+This script scans a directory for MIDI files, filters out invalid files, bins the valid files based on file size,
+and randomly selects a maximum number of files per bin. The resulting list of sampled file paths is saved to a JSON file.
+"""
+
 import os
 import random
-from collections import defaultdict
-from time import sleep
-import symusic as sm
-
-from tqdm import tqdm
-from pathlib import Path
 import argparse
 import json
+from collections import defaultdict
+from pathlib import Path
+from time import sleep
+from typing import List
+
+import symusic as sm
+from tqdm import tqdm
+
 
 def build_dataset(
-        files: List[str],
-        root: str,
-        bin_size: int,
-        max_files_per_bin: int,
-        seed: int = 42
+    files: List[str],
+    root: str,
+    bin_size: int,
+    max_files_per_bin: int,
+    seed: int = 42
 ) -> List[str]:
     """
-    根据文件大小对MIDI文件进行分bin，并返回一个经过筛选的文件路径列表。
+    Bin MIDI files by their file size and return a filtered list of file paths.
 
-    :param files: MIDI文件路径列表。
-    :param root: MIDI文件根目录。
-    :param bin_size: 每个bin的大小（单位：KB）。
-    :param max_files_per_bin: 每个bin中允许的最大文件数量。
-    :param seed: 随机种子，保证复现性。
-    :return: 筛选后的MIDI文件路径列表。
+    Args:
+        files (List[str]): List of MIDI file paths.
+        root (str): Root directory of the MIDI files.
+        bin_size (int): Size of each bin in KB.
+        max_files_per_bin (int): Maximum allowed number of files per bin.
+        seed (int): Random seed for reproducibility (default: 42).
+
+    Returns:
+        List[str]: Filtered list of MIDI file paths.
     """
-    # 设置随机种子，保证选择的可复现性
+    # Set the random seed for reproducibility
     random.seed(seed)
 
-    # 创建一个字典来存储每个bin中的文件路径
+    # Dictionary to store file paths for each bin (bin index -> list of file paths)
     bins = defaultdict(list)
 
-    # 遍历所有MIDI文件并根据文件大小分bin
-        # 对文件路径进行排序，保证每次的顺序一致
+    # Sort files to ensure consistent order each time
     sorted_files = sorted(files)
     for file_path in sorted_files:
-        file_size = os.path.getsize(file_path) / 1024  # 文件大小，单位为KB
+        # Calculate file size in KB
+        file_size = os.path.getsize(file_path) / 1024
+        # Determine bin index based on file size
         bin_index = int(file_size // bin_size)
-        # Convert path to relative path
-        file_path = os.path.relpath(file_path, root)
-        bins[bin_index].append(file_path)
+        # Convert file path to a relative path with respect to the root directory
+        relative_path = os.path.relpath(file_path, root)
+        bins[bin_index].append(relative_path)
 
-    # 根据每个bin的上限进行筛选
+    # Select files from each bin based on the maximum allowed per bin
     selected_files = []
     for bin_files in bins.values():
-        # 如果某个bin中的文件数量大于上限，则随机选择其中的文件
         if len(bin_files) > max_files_per_bin:
+            # Randomly sample files if the bin exceeds the maximum allowed
             selected_files.extend(random.sample(bin_files, max_files_per_bin))
         else:
             selected_files.extend(bin_files)
 
     return selected_files
 
-def is_valid(f: str):
+
+def is_valid(file_path: str) -> bool:
+    """
+    Check if a MIDI file is valid by attempting to parse it using symusic.
+
+    Args:
+        file_path (str): Path to the MIDI file.
+
+    Returns:
+        bool: True if the file is valid, False otherwise.
+    """
     try:
-        sm.Score(f)
+        sm.Score(file_path)
         return True
-    except:
+    except Exception:
         return False
 
-if __name__ == '__main__':
-    # Define the parser
-    parser = argparse.ArgumentParser(description="Sample the dataset according to file size")
-    parser.add_argument("--input", type=str, help="Input directory")
-    parser.add_argument("--output", type=str, default="./sampled_dataset.json", help="Output json file path")
-    # bin size and max files per bin
-    parser.add_argument("--bin_size", type=int, default=25, help="Bin size in KB")
-    parser.add_argument("--max_files_per_bin", type=int, default=4, help="Max files per bin")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Sample the dataset according to file size by binning MIDI files."
+    )
+    parser.add_argument(
+        "--input",
+        type=str,
+        required=True,
+        help="Input directory containing MIDI files."
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="./sampled_dataset.json",
+        help="Output JSON file path."
+    )
+    parser.add_argument(
+        "--bin_size",
+        type=int,
+        default=25,
+        help="Size of each bin in KB."
+    )
+    parser.add_argument(
+        "--max_files_per_bin",
+        type=int,
+        default=4,
+        help="Maximum number of files to keep per bin."
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for reproducibility."
+    )
 
     args = parser.parse_args()
 
+    # Define the root directory for the MIDI dataset
     root = Path(args.input)
-    # check if the input directory exists
     if not root.exists():
         raise FileNotFoundError(f"Directory '{args.input}' not found.")
 
-
-    print("Scanning datasets to filter out invalid files...")
+    print("Scanning dataset to filter out invalid files...")
     sleep(0.1)
-    MIDI_DATASET = list(filter(is_valid, tqdm(list(map(str, root.glob('**/*.mid*'))))))
 
-    all_midi_files = build_dataset(
-        MIDI_DATASET, str(root),
-        bin_size=args.bin_size, max_files_per_bin=args.max_files_per_bin, seed=args.seed
+    # Recursively find all MIDI files in the directory (supporting .mid and similar extensions)
+    midi_files = list(map(str, root.glob('**/*.mid*')))
+    # Filter out invalid MIDI files
+    valid_midi_files = list(filter(is_valid, tqdm(midi_files)))
+
+    # Build the dataset by binning files based on their size
+    sampled_files = build_dataset(
+        valid_midi_files,
+        str(root),
+        bin_size=args.bin_size,
+        max_files_per_bin=args.max_files_per_bin,
+        seed=args.seed
     )
-    print(f"Number of MIDI files: {len(all_midi_files)} / {len(MIDI_DATASET)}")
+
+    print(f"Number of sampled MIDI files: {len(sampled_files)} / {len(valid_midi_files)}")
+
     # Save the sampled dataset to a JSON file
     with open(args.output, 'w') as f:
-        json.dump(all_midi_files, f, indent=4)
+        json.dump(sampled_files, f, indent=4)
+    print(f"Sampled dataset saved to '{args.output}'.")
+
+
+if __name__ == '__main__':
+    main()
