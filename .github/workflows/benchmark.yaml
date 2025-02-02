@@ -47,7 +47,7 @@ jobs:
 
       - name: Run the benchmark
         run: |
-          python ./script/benchmark.py --library ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
+          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
 
       - name: Upload the results
         uses: actions/upload-artifact@v4
