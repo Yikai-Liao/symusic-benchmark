@@ -9,7 +9,7 @@ jobs:
       matrix:
         params:
           # Music21 is too slow, and we don't really care about the accuracy for music21
-          #          - { library: "music21", repeat: 1 }
+          - { library: "music21", repeat: 1 }
           - { library: "symusic", repeat: 128 }
           - { library: "midifile_cpp", repeat: 128 }
           - { library: "miditoolkit", repeat: 1 }
