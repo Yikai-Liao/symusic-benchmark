@@ -1,60 +1,105 @@
-# MIDI parsing libraries import
+"""
+Script to benchmark MIDI file read and write performance using various libraries.
+"""
+
+import os
+import json
+import argparse
+import timeit
+import multiprocessing
+from pathlib import Path
+from typing import List
+
+import pandas as pd
+
+# MIDI parsing libraries
 import symusic as sm
 import miditoolkit as mtk
 import pretty_midi as pm
 import partitura as pa
 import music21 as m21
 import midifile_cpp as mf
-# Other imports
-import timeit
-import os
-import pandas as pd
-import multiprocessing
-from typing import List
-from pathlib import Path
-import argparse
-import json
 
 
+def benchmark_read_write(library_funcs, file_paths, repeat=1, use_multiprocessing=False, use_tqdm=False):
+    """
+    Benchmark the read and write performance for a given library.
 
-# 测试读取和写入时间的函数，使用传入的读取和写入函数以及重复次数
-def benchmark_read_write(library_funcs, file_paths, repeat=1, use_multiprocessing=False):
-    _read_times = []
-    _write_times = []
-    _sizes = []
+    Args:
+        library_funcs (dict): Dictionary with 'read' and 'write' functions.
+        file_paths (list): List of MIDI file paths.
+        repeat (int): Number of times to repeat the read/write operations.
+        use_multiprocessing (bool): Whether to use multiprocessing.
+        use_tqdm (bool): Whether to use tqdm for progress bar.
+
+    Returns:
+        tuple: (list of file sizes in KB, list of average read times, list of average write times)
+    """
+    read_times = []
+    write_times = []
+    sizes = []
     read_func = library_funcs['read']
     write_func = library_funcs['write']
+
+    if use_tqdm:
+        from tqdm import tqdm
+    else:
+        def tqdm(iterable, *args, **kwargs):
+            return iterable
 
     if use_multiprocessing:
         cpu_count = multiprocessing.cpu_count() // 2
         with multiprocessing.Pool(cpu_count) as pool:
             results = list(tqdm(
-                pool.imap(measure_read_write_wrapper, [(path, read_func, write_func, repeat) for path in file_paths]),
-                desc="Read and Write Benchmark", total=len(file_paths)))
-
-        for size, read_time, write_time in results:
-            _sizes.append(size)
-            _read_times.append(read_time)
-            _write_times.append(write_time)
+                pool.imap(measure_read_write_wrapper,
+                          [(path, read_func, write_func, repeat) for path in file_paths]),
+                desc="Read and Write Benchmark",
+                total=len(file_paths)
+            ))
+        for size, avg_read, avg_write in results:
+            sizes.append(size)
+            read_times.append(avg_read)
+            write_times.append(avg_write)
     else:
-        for idx, path in enumerate(tqdm(file_paths, desc="Read and Write Benchmark")):
-            size, avg_read_time, avg_write_time = measure_read_write(path, read_func, write_func, repeat)
-            _sizes.append(size)
-            _read_times.append(avg_read_time)
-            _write_times.append(avg_write_time)
+        for path in tqdm(file_paths, desc="Read and Write Benchmark"):
+            size, avg_read, avg_write = measure_read_write(path, read_func, write_func, repeat)
+            sizes.append(size)
+            read_times.append(avg_read)
+            write_times.append(avg_write)
 
-    return _sizes, _read_times, _write_times
+    return sizes, read_times, write_times
 
 
-# 测量单个文件的读取和写入时间
 def measure_read_write_wrapper(args):
+    """
+    Wrapper for measure_read_write to facilitate multiprocessing.
+
+    Args:
+        args (tuple): Arguments for the measure_read_write function.
+
+    Returns:
+        tuple: (file size in KB, average read time, average write time)
+    """
     return measure_read_write(*args)
 
 
 def measure_read_write(path, read_func, write_func, repeat):
-    size = os.path.getsize(path) / 1024  # 文件大小，单位为KB
+    """
+    Measure the average read and write times for a single MIDI file.
 
-    # 测试读取时间
+    Args:
+        path (str): Path to the MIDI file.
+        read_func (function): Function to read the MIDI file.
+        write_func (function): Function to write the MIDI file.
+        repeat (int): Number of repetitions for the test.
+
+    Returns:
+        tuple: (file size in KB, average read time in seconds, average write time in seconds)
+    """
+    # Calculate file size in KB
+    size = os.path.getsize(path) / 1024
+
+    # Measure read time
     start_time = timeit.default_timer()
     midi_object = None
     for _ in range(repeat):
@@ -62,15 +107,15 @@ def measure_read_write(path, read_func, write_func, repeat):
     read_total_time = timeit.default_timer() - start_time
     avg_read_time = read_total_time / repeat
 
-    # 测试写入时间
+    # Measure write time
     start_time = timeit.default_timer()
     for i in range(repeat):
         temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
-        write_func(midi_object, temp_path)  # 写入操作
+        write_func(midi_object, temp_path)
     write_total_time = timeit.default_timer() - start_time
     avg_write_time = write_total_time / repeat
 
-    # 删除临时文件
+    # Remove temporary files
     for i in range(repeat):
         temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
         if os.path.exists(temp_path):
@@ -80,36 +125,48 @@ def measure_read_write(path, read_func, write_func, repeat):
 
 
 def music21_read(path):
+    """Read a MIDI file using music21."""
     return m21.converter.parse(path)
 
 
 def music21_write(midi_obj, path):
+    """Write a MIDI file using music21."""
     midi_obj.write('midi', path)
 
 
 def mtk_write(midi_obj, path):
+    """Write a MIDI file using miditoolkit."""
     midi_obj.dump(path)
 
 
 def pm_write(midi_obj, path):
+    """Write a MIDI file using pretty_midi."""
     midi_obj.write(path)
 
+
 def id_read(path):
+    """Read a file in binary mode (identity function)."""
     with open(path, 'rb') as f:
         return f.read()
 
 
 def id_write(data, path):
+    """Write binary data to a file (identity function)."""
     with open(path, 'wb') as f:
         f.write(data)
 
+
 def sm_read(path):
+    """Read a MIDI file using symusic."""
     return sm.Score(path)
 
+
 def sm_write(midi_obj, path):
+    """Write a MIDI file using symusic."""
     midi_obj.dump_midi(path)
 
-# 定义不同库的读取和写入操作
+
+# Dictionary mapping library names to their corresponding read and write functions
 LIBRARIES = {
     'miditoolkit': {
         'read': mtk.MidiFile,
@@ -141,89 +198,94 @@ LIBRARIES = {
     }
 }
 
-# 定义命令行参数
+# Default libraries for benchmarking
 DEFAULT_LIBS = ['symusic', 'midifile_cpp', 'miditoolkit', 'pretty_midi', 'partitura']
 
-parser = argparse.ArgumentParser(description="Benchmark midi file read and write performance.")
-# 给定一个序列，用于指定要测试的库
-parser.add_argument("--libraries", nargs='+', type=str, default=DEFAULT_LIBS, help="Libraries to benchmark")
-# 重复次数, 标量，或者一个与库数量相同的序列
-parser.add_argument("--repeat", nargs='+', type=int, default=4, help="Number of times to repeat the test")
-# 数据集跟目录
-parser.add_argument("--dataset_root", type=str, help="Root directory of the dataset")
-# json 文件列表
-parser.add_argument("--dataset_config", type=str, help="Json file containing the list of relative paths to the midi files")
-# 输出目录
-parser.add_argument("--output_dir", type=str, default="./results", help="Output directory")
-# tqdm 是否启用
-parser.add_argument("--tqdm", action='store_true', help="Use tqdm for progress bar")
 
-args = parser.parse_args()
-
-
-
-if args.tqdm:
-    from tqdm import tqdm
-else:
-    def tqdm(iterable, *args, **kwargs):
-        return iterable
-
-
-# json 为相对路径列表，与数据集根目录拼接
-with open(args.dataset_config, 'r') as f:
-    rel = json.load(f)
-    midi_files = [os.path.join(args.dataset_root, p) for p in rel]
-
-# 存储benchmark结果的字典
-benchmark_results = {
-    'read': {},
-    'write': {}
-}
-
-# 检查libraries参数是否合法
-for lib in args.libraries:
-    if lib not in LIBRARIES:
-        raise ValueError(f"Library '{lib}' is not supported.")
-
-
-# 检查repeat参数是否合法
-if len(args.repeat) == 1:
-    repeats = [args.repeat[0]] * len(args.libraries)
-elif len(args.repeat) == len(args.libraries):
-    repeats = args.repeat
-else:
-    raise ValueError(f"The length of 'repeat' should be 1 or equal to the number of libraries, not {args.repeat}.")
-# 输出 libraries 和 repeat
-print(f"Libraries: {args.libraries}")
-print(f"Repeat: {repeats}")
-
-# 执行benchmark
-for lib, repeat in zip(args.libraries, repeats):
-    print(f"Benchmarking {lib} READ and WRITE ...")
-    sizes, read_times, write_times = benchmark_read_write(
-        LIBRARIES[lib], midi_files,
-        repeat=repeat,
-        use_multiprocessing=False
+def main():
+    """
+    Parse command-line arguments, benchmark the specified libraries, and save the results.
+    """
+    parser = argparse.ArgumentParser(
+        description="Benchmark MIDI file read and write performance."
     )
+    # Libraries to benchmark (list of library names)
+    parser.add_argument("--libraries", nargs='+', type=str, default=DEFAULT_LIBS,
+                        help="Libraries to benchmark")
+    # Number of times to repeat the test (scalar or list matching number of libraries)
+    parser.add_argument("--repeat", nargs='+', type=int, default=4,
+                        help="Number of times to repeat the test")
+    # Root directory of the dataset
+    parser.add_argument("--dataset_root", type=str, help="Root directory of the dataset")
+    # JSON file containing the list of relative paths to the MIDI files
+    parser.add_argument("--dataset_config", type=str,
+                        help="JSON file containing the list of relative paths to the MIDI files")
+    # Output directory for results
+    parser.add_argument("--output_dir", type=str, default="./results", help="Output directory")
+    # Flag to use tqdm for progress bar
+    parser.add_argument("--tqdm", action='store_true', help="Use tqdm for progress bar")
 
-    benchmark_results['read'][lib] = (sizes, read_times)
-    benchmark_results['write'][lib] = (sizes, write_times)
+    args = parser.parse_args()
 
-# 创建结果文件夹
-output_dir = os.path.join(args.output_dir, Path(args.dataset_config).stem)
-os.makedirs(output_dir, exist_ok=True)
-# 每个 lib 保存两个文件：读和写，文件前缀为 config 文件名 _ lib
-prefix = Path(args.dataset_config).stem
+    # Import tqdm if enabled; otherwise, define a dummy tqdm
 
-# 保存结果为 CSV 文件
-for lib in args.libraries:
+    # Construct full paths for MIDI files using dataset_root and JSON config (relative paths)
+    with open(args.dataset_config, 'r') as f:
+        rel_paths = json.load(f)
+    midi_files = [os.path.join(args.dataset_root, p) for p in rel_paths]
 
-    sizes, read_times = benchmark_results['read'][lib]
-    read_df = pd.DataFrame({'File Size (KB)': sizes, 'Read Time (s)': read_times})
-    read_df.to_csv(f'{output_dir}/{lib}_read.csv', index=False)
+    # Dictionary to store benchmark results
+    benchmark_results = {
+        'read': {},
+        'write': {}
+    }
 
-    sizes, write_times = benchmark_results['write'][lib]
-    write_df = pd.DataFrame({'File Size (KB)': sizes, 'Write Time (s)': write_times})
-    write_df.to_csv(f'{output_dir}/{lib}_write.csv', index=False)
+    # Validate provided libraries
+    for lib in args.libraries:
+        if lib not in LIBRARIES:
+            raise ValueError(f"Library '{lib}' is not supported.")
 
-print(f"Results saved in '{output_dir}'.")
+    # Validate the repeat parameter: either a single value or one per library
+    if len(args.repeat) == 1:
+        repeats = [args.repeat[0]] * len(args.libraries)
+    elif len(args.repeat) == len(args.libraries):
+        repeats = args.repeat
+    else:
+        raise ValueError(
+            f"The length of 'repeat' should be 1 or equal to the number of libraries, not {args.repeat}."
+        )
+
+    # Output selected libraries and their repeat counts
+    print(f"Libraries: {args.libraries}")
+    print(f"Repeat: {repeats}")
+
+    # Execute benchmark for each library
+    for lib, repeat in zip(args.libraries, repeats):
+        print(f"Benchmarking {lib} READ and WRITE ...")
+        sizes, read_times, write_times = benchmark_read_write(
+            LIBRARIES[lib], midi_files, repeat=repeat, use_multiprocessing=False, use_tqdm=args.tqdm
+
+        )
+        benchmark_results['read'][lib] = (sizes, read_times)
+        benchmark_results['write'][lib] = (sizes, write_times)
+
+    # Create output directory using the stem of the dataset_config file
+    output_dir = os.path.join(args.output_dir, Path(args.dataset_config).stem)
+    os.makedirs(output_dir, exist_ok=True)
+    prefix = Path(args.dataset_config).stem
+
+    # Save benchmark results as CSV files for each library
+    for lib in args.libraries:
+        sizes, read_times = benchmark_results['read'][lib]
+        read_df = pd.DataFrame({'File Size (KB)': sizes, 'Read Time (s)': read_times})
+        read_df.to_csv(f'{output_dir}/{lib}_read.csv', index=False)
+
+        sizes, write_times = benchmark_results['write'][lib]
+        write_df = pd.DataFrame({'File Size (KB)': sizes, 'Write Time (s)': write_times})
+        write_df.to_csv(f'{output_dir}/{lib}_write.csv', index=False)
+
+    print(f"Results saved in '{output_dir}'.")
+
+
+if __name__ == '__main__':
+    main()
