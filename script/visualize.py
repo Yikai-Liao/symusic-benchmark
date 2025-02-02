@@ -6,7 +6,7 @@ import argparse
 import matplotlib.ticker as ticker
 import numpy as np
 
-LIB_ORDER = ['symusic', 'midifile_cpp', 'miditoolkit', 'pretty_midi', 'partitura', 'music21']
+LIB_ORDER = ['symusic', 'midifile_cpp', 'midi_jl', 'miditoolkit', 'pretty_midi', 'partitura', 'music21']
 
 def load_results(root_dir):
     # 读取所有 READ 数据
