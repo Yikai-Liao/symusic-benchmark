@@ -42,6 +42,13 @@ jobs:
         run: |
           python ./script/prepare_dataset.py --output ./
 
+      - name: "Set up Julia"
+        if: ${{ matrix.params.library == 'midi_jl' }}
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "nightly"
+          arch: "aarch64"
+
       - name: Log version information
         run: |
           python ./script/log_version.py --output ./results/version_info.json
@@ -54,8 +61,6 @@ jobs:
       - name: Run MIDI.jl benchmark
         if: ${{ matrix.params.library == 'midi_jl' }}
         run: |
-          pip install jill
-          jill install --confirm
           julia ./script/prepare_dependency.jl
           julia ./script/benchmark.jl --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
 
