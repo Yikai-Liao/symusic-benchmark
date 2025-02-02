@@ -54,6 +54,7 @@ jobs:
           python ./script/log_version.py --output ./results/version_info.json
 
       - name: Run the benchmark
+        if: ${{ matrix.params.library != 'midi_jl' }}
         run: |
           python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_10_8.json --output ./results
       
