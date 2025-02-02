@@ -103,6 +103,9 @@ def measure_read_write(path, read_func, write_func, repeat):
     # Calculate file size in KB
     try:
         size = os.path.getsize(path) / 1024
+        if size < 5:
+            # Skip files smaller than 5 KB
+            return None, None, None
 
         # Measure read time
         start_time = timeit.default_timer()
