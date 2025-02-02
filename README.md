@@ -19,6 +19,11 @@ You could use `prepare_denpendency.jl` script to install required `julia` libs.
 julia ./script/prepare_dependency.jl
 ```
 
+Download the dataset from Google Drive:
+```bash
+python ./script/prepare_dataset.py --output ./
+```
+
 Now you could run the benchmark
 
 ```bash
