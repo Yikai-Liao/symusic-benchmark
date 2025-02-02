@@ -49,16 +49,29 @@ jobs:
         run: |
           python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root /dev/shm/symusic_benchmark_datasets --dataset_config ./config/uniform_25_4.json --output ./results
 
-      - name: Upload the results
+#      - name: Upload the results
+#        uses: actions/upload-artifact@v4
+#        with:
+#          name: ${{ matrix.params.library }}
+#          path: ./results/uniform_25_4/${{ matrix.params.library }}_read.csv
+#            | ./results/uniform_25_4/${{ matrix.params.library }}_write.csv
+#          if-no-files-found: 'warn'
+
+      - name: Upload READ results
         uses: actions/upload-artifact@v4
-        with :
-          name: ${{ matrix.params.library }}
-          path: ./results/**/${{ matrix.params.library }}*.csv
-          if-no-files-found: 'warn'
+        with:
+          name: ${{ matrix.params.library }}_read.csv
+          path: ./results/uniform_25_4/${{ matrix.params.library }}_read.csv
+
+      - name: Upload WRITE results
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.params.library }}_write.csv
+          path : ./results/uniform_25_4/${{ matrix.params.library }}_write.csv
 
       - name: Upload the version information
         if: ${{ matrix.params.library == 'symusic' }}
         uses: actions/upload-artifact@v4
-        with :
-          name: version_info
+        with:
+          name: version_info.json
           path: ./results/version_info.json
