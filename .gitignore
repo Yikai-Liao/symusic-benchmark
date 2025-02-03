@@ -5,3 +5,4 @@ binding/**/build
 binding/**/cmake-build*
 symusic_benchmark_datasets
 fig
+node_modules
