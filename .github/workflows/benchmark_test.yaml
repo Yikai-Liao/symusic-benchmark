@@ -77,13 +77,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.params.library }}_read.csv
-          path: ./results/ ${{ matrix.params.library }}/${{ matrix.params.library }}_read.csv
+          path: ./results/${{ matrix.params.config }}/${{ matrix.params.library }}_read.csv
 
       - name: Upload WRITE results
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.params.library }}_write.csv
-          path : ./results/ ${{ matrix.params.library }}/${{ matrix.params.library }}_write.csv
+          path : ./results/${{ matrix.params.config }}/${{ matrix.params.library }}_write.csv
 
       - name: Upload the version information
         if: ${{ matrix.params.library == 'symusic' }}
