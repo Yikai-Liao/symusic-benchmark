@@ -9,30 +9,24 @@ jobs:
       matrix:
         params:
           # Music21 is too slow, and we don't really care about the accuracy for music21
-          - { library: "music21", repeat: 1 }
-          - { library: "symusic", repeat: 100 }
-          - { library: "midi_jl", repeat: 100 }
-          - { library: "midifile_cpp", repeat: 100 }
-          - { library: "miditoolkit", repeat: 10 }
-          - { library: "partitura", repeat: 10 }
-          - { library: "pretty_midi", repeat: 10 }
+          - { library: "music21", repeat: 1, config: "toy2" }
+          - { library: "symusic", repeat: 100, config: "uniform_10_8" }
+          - { library: "midifile_cpp", repeat: 100, config: "uniform_10_8" }
+          - { library: "midi_jl", repeat: 32, config: "uniform_10_8" }
+          - { library: "tone_js", repeat: 32, config: "uniform_10_8" }
+          - { library: "miditoolkit", repeat: 10, config: "uniform_10_8" }
+          - { library: "partitura", repeat: 10, config: "uniform_10_8" }
+          - { library: "pretty_midi", repeat: 10, config: "uniform_10_8" }
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
-      - name: Set up Python 3.12
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: 3.12
-      
-      - name: "Set up Julia"
-        if: ${{ matrix.params.library == 'midi_jl' }}
-        uses: julia-actions/setup-julia@v2
-        with:
-          version: "nightly"
-          arch: "aarch64"
+          python-version: 3.13
 
       - name: Install dependencies
         run: |
@@ -49,25 +43,47 @@ jobs:
         run: |
           python ./script/prepare_dataset.py --output ./
 
+      - name: "Set up Julia"
+        if: ${{ matrix.params.library == 'midi_jl' }}
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: "nightly"
+          arch: "aarch64"
+
+      - name: "Install Julia dependencies"
+        if: ${{ matrix.params.library == 'midi_jl' }}
+        run: julia ./script/prepare_dependency.jl
+
+      - name: Set up Node.js
+        if: ${{ matrix.params.library == 'tone_js' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+
+      - name: Install Node.js dependencies
+        if: ${{ matrix.params.library == 'tone_js' }}
+        run: |
+          npm install @tonejs/midi commander csv-writer cli-progress
+
       - name: Log version information
         run: |
           python ./script/log_version.py --output ./results/version_info.json
 
       - name: Run the benchmark
         run: |
-          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset-root ./symusic_benchmark_datasets --dataset-config ./config/uniform_10_8.json --output ./results
-      
+          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset-root ./symusic_benchmark_datasets --dataset-config ./config/${{ matrix.params.config }}.json --output ./results
+
       - name: Upload READ results
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.params.library }}_read.csv
-          path: ./results/uniform_10_8/${{ matrix.params.library }}_read.csv
+          path: ./results/${{ matrix.params.config }}/${{ matrix.params.library }}_read.csv
 
       - name: Upload WRITE results
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.params.library }}_write.csv
-          path : ./results/uniform_10_8/${{ matrix.params.library }}_write.csv
+          path : ./results/${{ matrix.params.config }}/${{ matrix.params.library }}_write.csv
 
       - name: Upload the version information
         if: ${{ matrix.params.library == 'symusic' }}
@@ -77,7 +93,7 @@ jobs:
           path: ./results/version_info.json
 
   visualize:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     needs: benchmark
     steps:
       - uses: actions/checkout@v4
