@@ -6,3 +6,7 @@ binding/**/cmake-build*
 symusic_benchmark_datasets
 fig
 node_modules
+results
+!results/legacy
+package-lock.json
+package.json

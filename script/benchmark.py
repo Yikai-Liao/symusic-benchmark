@@ -175,6 +175,45 @@ def sm_write(midi_obj, path):
     """Write a MIDI file using symusic."""
     midi_obj.dump_midi(path)
 
+def call_midi_jl(repeat: int, dataset_root: str, dataset_config: str, output_dir: str, use_tqdm: bool = False):
+    """
+    Call the Julia script to benchmark the MIDI.jl library.
+
+    Args:
+        repeat (int): Number of times to repeat the test.
+        dataset_root (str): Root directory of the dataset.
+        dataset_config (str): JSON file containing the list of relative paths to the MIDI files.
+        output_dir (str): Output directory for results.
+    """
+    import subprocess
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    prompt = [
+        "julia", os.path.join(cur_dir, "benchmark.jl"),
+        "--repeat", str(repeat),
+        "--dataset-root", dataset_root,
+        "--dataset-config", dataset_config,
+        "--output", output_dir
+    ]
+    if use_tqdm:
+        prompt.append("--tqdm")
+    print(f"Calling MIDI.jl benchmark script with the following command:\n {' '.join(prompt)}")
+    subprocess.run(prompt)
+
+def call_tone_js(repeat: int, dataset_root: str, dataset_config: str, output_dir: str, use_tqdm: bool = False):
+    import subprocess
+    cur_dir = os.path.dirname(os.path.abspath(__file__))
+    prompt = [
+        "node", "--expose-gc",
+        os.path.join(cur_dir, "benchmark.js"),
+        "--repeat", str(repeat),
+        "--dataset-root", dataset_root,
+        "--dataset-config", dataset_config,
+        "--output", output_dir
+    ]
+    if use_tqdm:
+        prompt.append("--tqdm")
+    print(f"Calling Tone.js benchmark script with the following command:\n {' '.join(prompt)}")
+    subprocess.run(prompt)
 
 # Dictionary mapping library names to their corresponding read and write functions
 LIBRARIES = {
@@ -205,11 +244,23 @@ LIBRARIES = {
     'identity': {
         'read': id_read,
         'write': id_write,
+    },
+    'midi_jl': {
+        'read': None,
+        'write': None,
+        'call': call_midi_jl,
+    },
+    'tone_js': {
+        'read': None,
+        'write': None,
+        'call': call_tone_js,
     }
 }
 
 # Default libraries for benchmarking
 DEFAULT_LIBS = ['symusic', 'midifile_cpp', 'miditoolkit', 'pretty_midi', 'partitura']
+
+
 
 
 def main():
@@ -226,12 +277,12 @@ def main():
     parser.add_argument("--repeat", nargs='+', type=int, default=4,
                         help="Number of times to repeat the test")
     # Root directory of the dataset
-    parser.add_argument("--dataset_root", type=str, help="Root directory of the dataset")
+    parser.add_argument("--dataset-root", type=str, help="Root directory of the dataset")
     # JSON file containing the list of relative paths to the MIDI files
-    parser.add_argument("--dataset_config", type=str,
+    parser.add_argument("--dataset-config", type=str,
                         help="JSON file containing the list of relative paths to the MIDI files")
     # Output directory for results
-    parser.add_argument("--output_dir", type=str, default="./results", help="Output directory")
+    parser.add_argument("--output", type=str, default="./results", help="Output directory")
     # Flag to use tqdm for progress bar
     parser.add_argument("--tqdm", action='store_true', help="Use tqdm for progress bar")
 
@@ -272,6 +323,11 @@ def main():
     # Execute benchmark for each library
     for lib, repeat in zip(args.libraries, repeats):
         print(f"Benchmarking {lib} READ and WRITE ...")
+        func = LIBRARIES[lib].get('call', None)
+        if func is not None:
+            func(repeat, args.dataset_root, args.dataset_config, args.output, use_tqdm=args.tqdm)
+            continue
+
         sizes, read_times, write_times = benchmark_read_write(
             LIBRARIES[lib], midi_files, repeat=repeat, use_multiprocessing=False, use_tqdm=args.tqdm
 
@@ -280,12 +336,13 @@ def main():
         benchmark_results['write'][lib] = (sizes, write_times)
 
     # Create output directory using the stem of the dataset_config file
-    output_dir = os.path.join(args.output_dir, Path(args.dataset_config).stem)
+    output_dir = os.path.join(args.output, Path(args.dataset_config).stem)
     os.makedirs(output_dir, exist_ok=True)
-    prefix = Path(args.dataset_config).stem
 
     # Save benchmark results as CSV files for each library
     for lib in args.libraries:
+        if lib not in benchmark_results['read']:
+            continue
         sizes, read_times = benchmark_results['read'][lib]
         read_df = pd.DataFrame({'File Size (KB)': sizes, 'Read Time (s)': read_times})
         read_df.to_csv(f'{output_dir}/{lib}_read.csv', index=False)

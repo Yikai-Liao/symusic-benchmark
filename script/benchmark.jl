@@ -2,25 +2,26 @@
 Benchmark 脚本：使用 MIDI.jl 测试 MIDI 文件的读写性能
 
 使用方法（命令行）示例：
-    julia midijl_benchmark.jl --dataset_root /path/to/midi_dataset \
-                               --dataset_config midi_files.json \
+    julia midijl_benchmark.jl --dataset-root /path/to/midi_dataset \
+                               --dataset-config midi_files.json \
                                --repeat 4 \
                                --output ./results \
-                               --verbose
+                               --tqdm
 
 参数说明：
-- --dataset_root      数据集根目录
-- --dataset_config    JSON 文件，里面包含 MIDI 文件的相对路径列表
+- --dataset-root      数据集根目录
+- --dataset-config    JSON 文件，里面包含 MIDI 文件的相对路径列表
 - --repeat            每个文件重复测试次数（默认4次）
 - --output            保存结果的输出目录（默认 "./results"）
-- --verbose           是否输出详细信息
+- --tqdm              是否显示进度条
 """
 
 using ArgParse
 using JSON
 using CSV
 using DataFrames
-using MIDI       # 请确保已安装 MIDI.jl 包，并且其提供 parse/write 接口
+using MIDI       # 请确保已安装 MIDI.jl 包，并且其提供 parse/save 接口
+using ProgressMeter
 using Printf
 
 # 主函数
@@ -32,27 +33,27 @@ function main()
             help = "重复测试次数（默认：4）"
             default = 4
             arg_type = Int
-        "--dataset_root"
+        "--dataset-root"
             help = "数据集根目录"
             required = true
-        "--dataset_config"
+        "--dataset-config"
             help = "包含 MIDI 文件相对路径列表的 JSON 文件"
             required = true
         "--output"
             help = "结果输出目录（默认：./results）"
             default = "./results"
-        "--verbose"
-            help = "是否输出详细信息"
+        "--tqdm"
+            help = "是否显示进度条"
             action = :store_true
     end
 
     args = parse_args(s)
 
     repeat = args["repeat"]
-    dataset_root = args["dataset_root"]
-    dataset_config = args["dataset_config"]
+    dataset_root = args["dataset-root"]
+    dataset_config = args["dataset-config"]
     output_dir = args["output"]
-    verbose = get(args, "verbose", false)
+    use_tqdm = get(args, "tqdm", false)
 
     # 读取 JSON 配置文件，构建完整的 MIDI 文件路径列表
     file_paths = String[]
@@ -67,17 +68,12 @@ function main()
     if !isempty(file_paths)
         warmup_file = file_paths[1]
         try
-            if verbose
-                println("开始预热...")
-            end
+            # 预热操作
             midi_obj = MIDI.load(warmup_file)
             temp_warmup = "temp_warmup.mid"
             MIDI.save(temp_warmup, midi_obj)
             if isfile(temp_warmup)
                 rm(temp_warmup)
-            end
-            if verbose
-                println("预热完成。")
             end
         catch e
             @warn("预热时出错：$e")
@@ -89,17 +85,14 @@ function main()
     read_times = Float64[]
     write_times = Float64[]
 
-    # 对每个文件进行测试
-    for file in file_paths
+    # 定义处理单个文件的函数
+    function process_file(file)
         try
             file_size = stat(file).size / 1024  # 单位：KB
+            # 跳过太小的文件（小于5 KB）
             if file_size < 5
-                if verbose
-                    @printf("跳过 %s （大小 %.2f KB 太小）\n", file, file_size)
-                end
-                continue
+                return
             end
-            midi_obj = load(file)
             # 测量读取时间
             total_read_time = 0.0
             midi_obj = nothing
@@ -116,7 +109,7 @@ function main()
             for i in 1:repeat
                 temp_file = "temp_$(basename(file))_$(i).mid"
                 t0 = time_ns()
-                save(temp_file, midi_obj)
+                MIDI.save(temp_file, midi_obj)
                 t1 = time_ns()
                 total_write_time += (t1 - t0) / 1e9
                 # 删除临时文件
@@ -129,18 +122,23 @@ function main()
             push!(sizes, file_size)
             push!(read_times, avg_read_time)
             push!(write_times, avg_write_time)
-
-            if verbose
-                @printf("处理 %s: 大小 = %.2f KB, 读取 = %.4f s, 写入 = %.4f s\n",
-                        file, file_size, avg_read_time, avg_write_time)
-            end
-
         catch e
             @warn("处理 $file 时出错：$e")
         end
     end
 
-    # 根据 dataset_config 文件的文件名（不含后缀）创建输出目录
+    # 对每个文件进行测试
+    if use_tqdm
+        @showprogress for file in file_paths
+            process_file(file)
+        end
+    else
+        for file in file_paths
+            process_file(file)
+        end
+    end
+
+    # 根据 dataset-config 文件的文件名（不含后缀）创建输出目录
     dataset_stem = splitext(basename(dataset_config))[1]
     final_output_dir = joinpath(output_dir, dataset_stem)
     mkpath(final_output_dir)

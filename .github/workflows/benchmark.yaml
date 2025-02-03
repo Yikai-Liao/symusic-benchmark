@@ -54,16 +54,9 @@ jobs:
           python ./script/log_version.py --output ./results/version_info.json
 
       - name: Run the benchmark
-        if: ${{ matrix.params.library != 'midi_jl' }}
         run: |
-          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_10_8.json --output ./results
+          python ./script/benchmark.py --libraries ${{ matrix.params.library }} --repeat ${{ matrix.params.repeat }} --dataset-root ./symusic_benchmark_datasets --dataset-config ./config/uniform_10_8.json --output ./results
       
-      - name: Run MIDI.jl benchmark
-        if: ${{ matrix.params.library == 'midi_jl' }}
-        run: |
-          julia ./script/prepare_dependency.jl
-          julia ./script/benchmark.jl --repeat ${{ matrix.params.repeat }} --dataset_root ./symusic_benchmark_datasets --dataset_config ./config/uniform_10_8.json --output ./results
-
       - name: Upload READ results
         uses: actions/upload-artifact@v4
         with:

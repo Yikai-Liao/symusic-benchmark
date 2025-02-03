@@ -10,7 +10,7 @@ program
   .requiredOption('--dataset-root <path>', 'Root directory of the dataset')
   .requiredOption('--dataset-config <path>', 'JSON file containing MIDI file list')
   .option('--repeat <number>', 'Number of repetitions', (v) => parseInt(v), 4)
-  .option('--output-dir <path>', 'Output directory', './results')
+  .option('--output <path>', 'Output directory', './results')
   .option('--tqdm', 'Show progress bar', false)
   .parse(process.argv);
 
@@ -19,17 +19,19 @@ const options = program.opts();
 // 预热函数：预先调用解析和写入，确保 JIT 编译完成
 function warmup(fileBuffer) {
   // 预热读取和写入
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 10; i++) {
     new Midi(fileBuffer);
   }
   const tempMidi = new Midi(fileBuffer);
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 10; i++) {
     Buffer.from(tempMidi.toArray());
   }
 }
 
 async function benchmarkToneJS() {
-  try {
+    // 输出 config 路径
+    console.log('Dataset root:', options.datasetRoot);
+    console.log('Dataset config:', options.datasetConfig);
     const relPaths = JSON.parse(fs.readFileSync(options.datasetConfig));
     const midiFiles = relPaths.map(p => path.join(options.datasetRoot, p));
     
@@ -122,15 +124,11 @@ async function benchmarkToneJS() {
     
     if (options.tqdm) progressBar.stop();
     saveResults(results);
-    
-  } catch (error) {
-    console.error('Benchmark failed:', error.message);
-    process.exit(1);
-  }
 }
 
 function saveResults(results) {
-  const outputDir = path.join(options.outputDir, path.parse(options.datasetConfig).name);
+  console.log('Saving results to ', options.output);
+  const outputDir = path.join(options.output, path.parse(options.datasetConfig).name);
   fs.mkdirSync(outputDir, { recursive: true });
   
   // 构建读取性能数据，并保存到一个 CSV 文件
@@ -141,7 +139,7 @@ function saveResults(results) {
   }));
   
   const csvWriterRead = csvWriterLib({
-    path: path.join(outputDir, 'tonejs_benchmark_read.csv'),
+    path: path.join(outputDir, 'tone_js_read.csv'),
     header: [
       { id: 'fileSizeKB', title: 'File Size (KB)' },
       { id: 'readTimeSec', title: 'Read Time (s)' }
@@ -149,7 +147,7 @@ function saveResults(results) {
   });
   
   csvWriterRead.writeRecords(csvDataRead)
-    .then(() => console.log(`Read results saved to ${path.join(outputDir, 'tonejs_read.csv')}`))
+    .then(() => console.log(`Read results saved to ${path.join(outputDir, 'tone_js_read.csv')}`))
     .catch(err => console.error('Error writing read CSV:', err));
     
   // 构建写入性能数据，并保存到另一个 CSV 文件
@@ -160,7 +158,7 @@ function saveResults(results) {
   }));
   
   const csvWriterWrite = csvWriterLib({
-    path: path.join(outputDir, 'tonejs_benchmark_write.csv'),
+    path: path.join(outputDir, 'tone_js_write.csv'),
     header: [
       { id: 'fileSizeKB', title: 'File Size (KB)' },
       { id: 'writeTimeSec', title: 'Write Time (s)' }

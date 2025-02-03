@@ -3,6 +3,8 @@ miditoolkit
 pretty_midi
 music21
 pandas
+polars
+pyarrow
 jupyter
 tqdm
 gdown
