@@ -56,6 +56,7 @@ jobs:
 
       - name: Set up Node.js
         if: ${{ matrix.params.library == 'tone_js' }}
+        uses: actions/setup-node@v4
         with:
           node-version: latest
 
