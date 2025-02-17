@@ -10,12 +10,12 @@ jobs:
         params:
           # Music21 is too slow, and we don't really care about the accuracy for music21
           - { library: "music21", repeat: 1, config: "toy2" }
-          - { library: "symusic", repeat: 100, config: "uniform_10_8" }
+          - { library: "symusic", repeat: 500, config: "uniform_10_8" }
           - { library: "midifile_cpp", repeat: 100, config: "uniform_10_8" }
           - { library: "midi_jl", repeat: 32, config: "uniform_10_8" }
-          - { library: "tone_js", repeat: 32, config: "uniform_10_8" }
+          - { library: "tone_js", repeat: 10, config: "uniform_10_8" }
           - { library: "miditoolkit", repeat: 10, config: "uniform_10_8" }
-          - { library: "partitura", repeat: 10, config: "uniform_10_8" }
+          - { library: "partitura", repeat: 8, config: "uniform_10_8" }
           - { library: "pretty_midi", repeat: 10, config: "uniform_10_8" }
 
     steps:
