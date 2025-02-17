@@ -33,6 +33,12 @@ jobs:
           pip install -r ./requirements.txt
           pip install ./binding/midifile_cpp
 
+      - name: Install symusic (development version)
+        if: ${{ matrix.params.library == 'symusic' }}
+        run: |
+          git clone --recursive https://github.com/Yikai-Liao/symusic
+          pip install ./symusic
+
       - name: Install partitura (development version)
         run: |
           bash ./script/install_partitura_dev.sh
