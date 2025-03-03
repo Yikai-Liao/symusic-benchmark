@@ -115,11 +115,12 @@ def plot_line_chart(data, title, filename, x_min, x_max, y_min, y_max, output_di
             lowess=True,
             scatter=False,
             label=lib,
-            line_kws={'alpha': 0.6, 'color': palette[i], 'linestyle': '-'}
+            line_kws={'alpha': 0.6, 'color': palette[i], 'linestyle': '-'},
+            scatter_kws={'color': palette[i], 's': 2, 'alpha': 0.6}
         )
 
     # 根据平均速度计算标签在 y 轴上的显示位置（避免重叠）
-    label_positions = compute_label_positions(avg_speed_dict, min_gap_log=0.15)
+    label_positions = compute_label_positions(avg_speed_dict, min_gap_log=0.2)
     for i, lib in enumerate(LIB_ORDER):
         if lib in avg_speed_dict:
             avg_speed = avg_speed_dict[lib]
@@ -131,7 +132,7 @@ def plot_line_chart(data, title, filename, x_min, x_max, y_min, y_max, output_di
                 va='center',
                 ha='left',
                 color=palette[i],
-                fontsize=12
+                fontsize=13
             )
 
     plt.yscale('log')
@@ -186,6 +187,7 @@ def plot_violin_chart(data, title, filename, output_dir):
     """
     # 先过滤掉极端离群点（使用 Polars 过滤）
     data_filtered = filter_outliers_polars(data, column='Speed (MB/s)', k=1.5)
+    # data_filtered = data
     # 转换为 pandas DataFrame 以便后续绘图
     data_filtered_pd = data_filtered.to_pandas()
 
@@ -194,13 +196,14 @@ def plot_violin_chart(data, title, filename, output_dir):
     order = [lib for lib in LIB_ORDER if lib in present_libs]
     n_lib = len(order)
     # 根据库数量动态调整图形宽度（每个库约 1.5 英寸，最小 6 英寸）
-    fig_width = max(6, n_lib * 1.5)
+    fig_width = n_lib * 0.8 + 2
     plt.figure(figsize=(fig_width, 6))
 
     # 固定调色板映射：库 -> 颜色
     palette = sns.color_palette("colorblind", n_colors=len(LIB_ORDER))
     color_dict = {lib: palette[i] for i, lib in enumerate(LIB_ORDER)}
 
+    # 绘制小提琴图, 添加散点图（避免图例遮挡）
     ax = sns.violinplot(
         x="Library",
         y="Speed (MB/s)",
@@ -209,6 +212,8 @@ def plot_violin_chart(data, title, filename, output_dir):
         order=order,
         palette=color_dict,
         dodge=False,
+        cut=0.2,
+        gridsize=200,
     )
 
     # 计算各库中位数并在图上标注（标签置于中位数上方 15% 处）
@@ -222,8 +227,8 @@ def plot_violin_chart(data, title, filename, output_dir):
                 s=f"{median_val:.2f}" if median_val > 1 else f"{median_val:.3f}",
                 ha='center',
                 va='bottom',
-                fontsize=9,
-                color=color_dict[lib]
+                fontsize=12,
+                color='black'
             )
 
     # 设置每个小提琴的透明度
