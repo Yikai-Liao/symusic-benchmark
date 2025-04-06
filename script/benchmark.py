@@ -34,9 +34,9 @@ except ImportError:
     partitura = None
 
 try:
-    from midifile import midifile
+    import midifile_cpp
 except ImportError:
-    midifile = None
+    midifile_cpp = None
 
 try:
     import symusic
@@ -168,9 +168,10 @@ def measure_read_write(path, read_func, write_func, repeat):
             temp_dir.mkdir(exist_ok=True)
             # Ensure unique temp file name, e.g., using process ID if multiprocessing
             temp_path = temp_dir / f"temp_{os.path.basename(path)}_{os.getpid()}.mid"
+            temp_path_str = str(temp_path)  # Convert Path to string for compatibility
 
             try:
-                write_timer = timeit.Timer(lambda: write_func(midi_object, temp_path))
+                write_timer = timeit.Timer(lambda: write_func(midi_object, temp_path_str))
                 # Run once before timing if needed for setup, but usually not required for write
                 # Use timeit.repeat for write timing as well
                 write_times = write_timer.repeat(repeat=repeat, number=1)
@@ -330,9 +331,10 @@ LIBRARIES = {
         'write': partitura.save_performance_midi if partitura else None,
     },
     'midifile_cpp': {
-        # midifile_cpp might require instantiation then read/write methods
-        'read': lambda p: midifile.MidiFile().read(p) if midifile else None,
-        'write': lambda obj, p: obj.write(p) if midifile else None,
+        # Use the module-level load function for reading.
+        'read': midifile_cpp.load if midifile_cpp else None, 
+        # Use the module-level dump function for writing.
+        'write': midifile_cpp.dump if midifile_cpp else None,
     },
     'identity': {
         'read': id_read,

@@ -23,35 +23,46 @@ LIB_ORDER = ['symusic', 'numba_midi', 'midifile_cpp', 'midi_jl', 'tone_js',
 
 def load_results(root_dir):
     """
-    从指定目录中读取各库的读/写 benchmark 数据，并计算速度（单位 MB/s）。
-    使用 Polars 读取 CSV 文件，返回两个 Polars DataFrame：read_data 和 write_data。
+    Read benchmark data for each library from the specified directory and calculate speed (MB/s).
+    Uses Polars to read CSV files and returns two Polars DataFrames: read_data and write_data.
+    Ensures numeric columns are properly cast to float before arithmetic operations.
     """
-    # 读取所有 READ 数据
+    # Read all READ data
     read_data_list = []
     for lib in LIB_ORDER:
         path = os.path.join(root_dir, f'{lib}_read.csv')
         if os.path.exists(path):
-            # 使用 polars 读取 CSV
+            # Read CSV with Polars and ensure numeric columns are properly typed
             df = pl.read_csv(path)
-            # 计算速度：文件大小（KB）/ 读时间（s） 转换为 MB/s
+            # Ensure columns are cast to float before arithmetic operations
+            df = df.with_columns([
+                pl.col("File Size (KB)").cast(pl.Float64),
+                pl.col("Read Time (s)").cast(pl.Float64)
+            ])
+            # Calculate speed: file size (KB) / read time (s) converted to MB/s
             df = df.with_columns((pl.col("File Size (KB)") / pl.col("Read Time (s)") / 1024).alias("Speed (MB/s)"))
             df = df.with_columns(pl.lit(lib).alias("Library"))
             read_data_list.append(df)
     if not read_data_list:
-        raise ValueError("未找到任何 read 数据！")
+        raise ValueError("No read data found!")
     read_data = pl.concat(read_data_list)
 
-    # 读取所有 WRITE 数据
+    # Read all WRITE data
     write_data_list = []
     for lib in LIB_ORDER:
         path = os.path.join(root_dir, f'{lib}_write.csv')
         if os.path.exists(path):
             df = pl.read_csv(path)
+            # Ensure columns are cast to float before arithmetic operations
+            df = df.with_columns([
+                pl.col("File Size (KB)").cast(pl.Float64),
+                pl.col("Write Time (s)").cast(pl.Float64)
+            ])
             df = df.with_columns((pl.col("File Size (KB)") / pl.col("Write Time (s)") / 1024).alias("Speed (MB/s)"))
             df = df.with_columns(pl.lit(lib).alias("Library"))
             write_data_list.append(df)
     if not write_data_list:
-        raise ValueError("未找到任何 write 数据！")
+        raise ValueError("No write data found!")
     write_data = pl.concat(write_data_list)
 
     return read_data, write_data
