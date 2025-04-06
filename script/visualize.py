@@ -17,7 +17,7 @@ import matplotlib.ticker as ticker
 OUTPUT_DPI = 600
 
 # 库的顺序（用于颜色映射和排序）
-LIB_ORDER = ['symusic', 'midifile_cpp', 'midi_jl', 'tone_js',
+LIB_ORDER = ['symusic', 'numba_midi', 'midifile_cpp', 'midi_jl', 'tone_js',
              'miditoolkit', 'pretty_midi', 'partitura', 'music21']
 
 

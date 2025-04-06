@@ -17,6 +17,7 @@ jobs:
           - { library: "partitura", repeat: 2, config: "uniform_25_4" }
           - { library: "pretty_midi", repeat: 2, config: "uniform_25_4" }
           - { library: "tone_js", repeat: 2, config: "uniform_25_4" }
+          - { library: "numba_midi", repeat: 32, config: "uniform_25_4" }
 
     steps:
       - uses: actions/checkout@v4

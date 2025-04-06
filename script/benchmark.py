@@ -12,13 +12,48 @@ from typing import List
 
 import pandas as pd
 
-# MIDI parsing libraries
-import symusic as sm
-import miditoolkit as mtk
-import pretty_midi as pm
-import partitura as pa
-import music21 as m21
-import midifile_cpp as mf
+# Import necessary libraries based on availability
+try:
+    import music21
+except ImportError:
+    music21 = None
+
+try:
+    import miditoolkit as mtk
+except ImportError:
+    mtk = None
+
+try:
+    import pretty_midi
+except ImportError:
+    pretty_midi = None
+
+try:
+    import partitura
+except ImportError:
+    partitura = None
+
+try:
+    from midifile import midifile
+except ImportError:
+    midifile = None
+
+try:
+    import symusic
+except ImportError:
+    symusic = None
+
+try:
+    from numba_midi.score import load_score as numba_midi_load_score
+    from numba_midi.score import save_score_to_midi as numba_midi_save_to_midi
+except ImportError:
+    numba_midi_load_score = None
+    numba_midi_save_to_midi = None
+
+try:
+    import mido
+except ImportError:
+    mido = None
 
 
 def benchmark_read_write(library_funcs, file_paths, repeat=1, use_multiprocessing=False, use_tqdm=False):
@@ -99,6 +134,7 @@ def measure_read_write(path, read_func, write_func, repeat):
 
     Returns:
         tuple: (file size in KB, average read time in seconds, average write time in seconds)
+               Returns (None, None, None) if file is skipped or an error occurs.
     """
     # Calculate file size in KB
     try:
@@ -108,27 +144,60 @@ def measure_read_write(path, read_func, write_func, repeat):
             return None, None, None
 
         # Measure read time
-        start_time = timeit.default_timer()
-        midi_object = None
-        for _ in range(repeat):
+        read_total_time = 0
+        midi_object = None # Ensure midi_object is defined before the loop if repeat=0 edge case matters
+        read_timer = timeit.Timer(lambda: read_func(path))
+        # Run once to get the object for writing, handle potential errors
+        try:
             midi_object = read_func(path)
-        read_total_time = timeit.default_timer() - start_time
-        avg_read_time = read_total_time / repeat
+            # Use timeit.repeat for more stable measurements, take the minimum
+            read_times = read_timer.repeat(repeat=repeat, number=1)
+            read_total_time = min(read_times) # Using min time as often recommended
+        except Exception as e:
+            print(f"Error reading {path} with {read_func.__name__ if hasattr(read_func, '__name__') else 'read_func'}: {e}")
+            return None, None, None # Skip file if read fails
 
-        # Measure write time
-        start_time = timeit.default_timer()
-        for i in range(repeat):
-            temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
-            write_func(midi_object, temp_path)
-        write_total_time = timeit.default_timer() - start_time
-        avg_write_time = write_total_time / repeat
+        avg_read_time = read_total_time # Since number=1, min time is the time for one execution
 
-        # Remove temporary files
-        for i in range(repeat):
-            temp_path = f"temp_{os.path.basename(path)}_{i}.mid"
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+        # Measure write time only if read was successful and write_func exists
+        avg_write_time = None
+        if write_func and midi_object is not None:
+            write_total_time = 0
+            # Use a temporary file path for writing
+            temp_dir = Path("./temp_benchmark_files")
+            temp_dir.mkdir(exist_ok=True)
+            # Ensure unique temp file name, e.g., using process ID if multiprocessing
+            temp_path = temp_dir / f"temp_{os.path.basename(path)}_{os.getpid()}.mid"
+
+            try:
+                write_timer = timeit.Timer(lambda: write_func(midi_object, temp_path))
+                # Run once before timing if needed for setup, but usually not required for write
+                # Use timeit.repeat for write timing as well
+                write_times = write_timer.repeat(repeat=repeat, number=1)
+                write_total_time = min(write_times)
+                avg_write_time = write_total_time # Time for one execution
+            except Exception as e:
+                print(f"Error writing {path} with {write_func.__name__ if hasattr(write_func, '__name__') else 'write_func'}: {e}")
+                avg_write_time = None # Indicate write failure
+            finally:
+                 # Clean up the temporary file
+                if temp_path.exists():
+                    try:
+                        os.remove(temp_path)
+                    except OSError as e:
+                        print(f"Error removing temporary file {temp_path}: {e}")
+                 # Optional: Clean up temp directory if empty and desired
+                 # try:
+                 #     if not any(temp_dir.iterdir()):
+                 #         temp_dir.rmdir()
+                 # except OSError:
+                 #     pass # Ignore error if dir not empty or other issue
+
+
         return size, avg_read_time, avg_write_time
+    except FileNotFoundError:
+        print(f"Error: File not found {path}")
+        return None, None, None
     except Exception as e:
         print(f"Error processing {path}: {e}")
         return None, None, None
@@ -136,7 +205,7 @@ def measure_read_write(path, read_func, write_func, repeat):
 
 def music21_read(path):
     """Read a MIDI file using music21."""
-    return m21.converter.parse(path)
+    return music21.converter.parse(path)
 
 
 def music21_write(midi_obj, path):
@@ -168,12 +237,35 @@ def id_write(data, path):
 
 def sm_read(path):
     """Read a MIDI file using symusic."""
-    return sm.Score(path)
+    return symusic.Score(path)
 
 
 def sm_write(midi_obj, path):
     """Write a MIDI file using symusic."""
     midi_obj.dump_midi(path)
+
+
+# --- numba_midi Wrappers ---
+def numba_midi_read(path):
+    """Read a MIDI file using numba_midi load_score."""
+    if not numba_midi_load_score:
+        raise ImportError("numba_midi.score.load_score not available.")
+    # Using recommended defaults from numba_midi benchmark example
+    return numba_midi_load_score(path, notes_mode="note_off_stops_all", minimize_tempo=False)
+
+def numba_midi_write(midi_obj, path):
+    """Write a numba_midi Score object to a MIDI file using save_score_to_midi."""
+    if not numba_midi_save_to_midi:
+        raise ImportError("numba_midi.score.save_score_to_midi not available.")
+    
+    # Save the Score object to a MIDI file
+    try:
+        numba_midi_save_to_midi(midi_obj, path)
+    except Exception as e:
+        print(f"Error in numba_midi_save_to_midi: {e}")
+        raise e
+# --- End numba_midi Wrappers ---
+
 
 def call_midi_jl(repeat: int, dataset_root: str, dataset_config: str, output_dir: str, use_tqdm: bool = False):
     """
@@ -218,42 +310,47 @@ def call_tone_js(repeat: int, dataset_root: str, dataset_config: str, output_dir
 # Dictionary mapping library names to their corresponding read and write functions
 LIBRARIES = {
     'miditoolkit': {
-        'read': mtk.MidiFile,
-        'write': mtk_write,
+        'read': mtk.MidiFile if mtk else None,
+        'write': mtk_write if mtk else None,
     },
     'symusic': {
-        'read': sm_read,
-        'write': sm_write,
+        'read': sm_read if symusic else None,
+        'write': sm_write if symusic else None,
     },
     'pretty_midi': {
-        'read': pm.PrettyMIDI,
-        'write': pm_write,
+        'read': pretty_midi.PrettyMIDI if pretty_midi else None,
+        'write': pm_write if pretty_midi else None,
     },
     'music21': {
-        'read': music21_read,
-        'write': music21_write,
+        'read': music21_read if music21 else None,
+        'write': music21_write if music21 else None,
     },
     'partitura': {
-        'read': pa.load_performance_midi,
-        'write': pa.save_performance_midi,
+        'read': partitura.load_performance_midi if partitura else None, # Assuming performance representation
+        'write': partitura.save_performance_midi if partitura else None,
     },
     'midifile_cpp': {
-        'read': mf.load,
-        'write': mf.dump,
+        # midifile_cpp might require instantiation then read/write methods
+        'read': lambda p: midifile.MidiFile().read(p) if midifile else None,
+        'write': lambda obj, p: obj.write(p) if midifile else None,
     },
     'identity': {
         'read': id_read,
         'write': id_write,
     },
     'midi_jl': {
-        'read': None,
-        'write': None,
+        'read': None, # Handled externally
+        'write': None, # Handled externally
         'call': call_midi_jl,
     },
     'tone_js': {
-        'read': None,
-        'write': None,
+        'read': None, # Handled externally
+        'write': None, # Handled externally
         'call': call_tone_js,
+    },
+    'numba_midi': {
+        'read': numba_midi_read if numba_midi_load_score else None,
+        'write': numba_midi_write if numba_midi_save_to_midi else None,
     }
 }
 

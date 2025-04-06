@@ -11,6 +11,8 @@ from typing import Dict
 from importlib.metadata import version, PackageNotFoundError
 import platform
 from datetime import datetime
+import sys
+import pkg_resources
 
 # List of libraries for which to retrieve the version information.
 LIBRARIES = (
@@ -21,7 +23,17 @@ LIBRARIES = (
     "pretty_midi",
     "partitura",
     "music21",
+    "numba_midi",
+    "midi_jl",
+    "tone_js",
 )
+
+# Mapping for libraries with different registry names or special handling
+LIBRARY_MAP = {
+    "midifile_cpp": "midifile",
+    "midi_jl": "MIDI",        # Julia package name
+    "tone_js": "@tonejs/midi" # npm package name
+}
 
 def get_versions() -> Dict[str, str]:
     """
@@ -32,57 +44,58 @@ def get_versions() -> Dict[str, str]:
     """
     versions = {}
     for lib in LIBRARIES:
-        try:
-            versions[lib] = version(lib)
-        except PackageNotFoundError:
-            # If the library is not installed, skip it.
-            pass
+        package_name_to_check = LIBRARY_MAP.get(lib, lib)
+
+        if lib == "midi_jl":
+            versions[lib] = "Checked via julia-actions/setup-julia"
+        elif lib == "tone_js":
+            versions[lib] = "Checked via actions/setup-node"
+        else:
+            try:
+                # Use importlib.metadata for Python packages
+                versions[lib] = version(package_name_to_check)
+            except PackageNotFoundError:
+                versions[lib] = None # Library not found
+            except Exception as e:
+                versions[lib] = f"Error: {e}"
     return versions
 
 def main() -> None:
     """
     Parse command-line arguments, collect version information, and save it as a JSON file.
     """
-    # Define and parse the command-line argument for the output file path.
     parser = argparse.ArgumentParser(
         description="Log the version of the libraries."
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="./version.json",
-        help="Output file path",
+        required=True,
+        help="Output JSON file path.",
     )
     args = parser.parse_args()
 
-    # Retrieve versions for the specified libraries.
     library_versions = get_versions()
-
-    # Obtain the Python version using the platform module.
-    python_version = platform.python_version()
-
-    # Get the current time in ISO 8601 format.
+    python_version_detailed = sys.version
+    platform_info = platform.platform()
     current_time = datetime.now().isoformat()
 
-    # Prepare the dictionary containing all the version information.
     info = {
+        "python_version": python_version_detailed,
+        "platform_info": platform_info,
         "libraries": library_versions,
-        "python": python_version,
         "time": current_time,
     }
 
-    print(f"Library version information will be saved in '{args.output}'.")
+    print(f"Version information saved to {args.output}")
 
-    # Ensure the output directory exists (if specified).
     output_dir = os.path.dirname(args.output)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
 
-    # Write the version information to the specified JSON file.
     with open(args.output, 'w') as f:
         json.dump(info, f, indent=4)
 
-    # Pretty print the information to the console.
     pprint.pprint(info)
 
 if __name__ == "__main__":

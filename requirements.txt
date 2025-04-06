@@ -1,6 +1,7 @@
 symusic
 miditoolkit
 pretty_midi
+numba_midi
 music21
 pandas
 polars

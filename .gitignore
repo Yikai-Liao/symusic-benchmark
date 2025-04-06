@@ -10,3 +10,4 @@ results
 !results/legacy
 package-lock.json
 package.json
+build/
